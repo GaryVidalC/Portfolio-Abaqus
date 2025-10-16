@@ -27,7 +27,7 @@ class PortfolioTimeSeriesApi(views.APIView):
         fecha_inicio = ser.validated_data['fecha_inicio']
         fecha_fin = ser.validated_data['fecha_fin']
 
-        # ⛔ Validación contra última fecha disponible
+        # Validación contra última fecha disponible
         last_date = last_price_date()
         if last_date and fecha_fin > last_date:
             return response.Response(
@@ -52,10 +52,10 @@ class TradeApi(views.APIView):
         p = get_object_or_404(Portfolio, pk=portfolio_id)
         data = request.data
         a_sell = Asset.objects.get(name=data['asset_sell'])
-        a_buy = Asset.objects.get(name=data['asset_buy'])
+        a_buy  = Asset.objects.get(name=data['asset_buy'])
         apply_trade(
             portfolio=p, d=data['fecha'],
             asset_sell=a_sell, value_sell=data['value_sell'],
-            asset_buy=a_buy, value_buy=data['value_buy']
+            asset_buy=a_buy,  value_buy=data['value_buy'],
         )
         return response.Response({"status": "ok"})
