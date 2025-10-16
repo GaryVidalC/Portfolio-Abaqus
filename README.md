@@ -5,13 +5,13 @@ Proyecto Django para modelar portafolios de inversión y responder:
 - $V_t$ : valor del portafolio en el tiempo
 - $w_{i,t}$ : weights por activo en el tiempo
 
-Incluye:
+# Incluye:
 - ETL desde **datos.xlsx** (sheets `weights` y `Precios`)
 - **Bonus 1**: vista con gráficos (Chart.js)
 - **Bonus 2**: trades (compra/venta) aplicados al historial
 - Switch **con/sin trades** (flag y página separada)
 
-Setup (antes del runserver):
+# Setup (antes del runserver):
 ```powershell
 # instalar requirements.txt
 pip install -r requirements.txt
@@ -21,6 +21,7 @@ python manage.py migrate
 
 # cargar excel
 python manage.py import_xlsx .\datos.xlsx --initial-date 15-02-2022 --weights-sheet weights --prices-sheet Precios
-
+```
+En el home se puede escoger la fecha de inicio, fecha final y si se aplica o no el trade, para que funcione hay que apretar en "abrir en pestaña nueva". Los plots se abren en otra pestaña.
 
 
