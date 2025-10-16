@@ -1,10 +1,10 @@
-from rest_framework import views, response
+from rest_framework import views, response, status
 from django.shortcuts import get_object_or_404
 from investments.models import Portfolio, Asset
 from investments.services import apply_trade
 from investments.selectors import portfolio_time_series
 from .serializers import TimeSeriesRequestSerializer
-from investments.selectors import initial_units_for_all_assets
+from investments.selectors import initial_units_for_all_assets, last_price_date
 from .serializers import InitialUnitsSerializer
 
 class HealthApi(views.APIView):
@@ -23,15 +23,28 @@ class PortfolioTimeSeriesApi(views.APIView):
         p = get_object_or_404(Portfolio, pk=portfolio_id)
         ser = TimeSeriesRequestSerializer(data=request.query_params)
         ser.is_valid(raise_exception=True)
+
+        fecha_inicio = ser.validated_data['fecha_inicio']
+        fecha_fin = ser.validated_data['fecha_fin']
+
+        # ⛔ Validación contra última fecha disponible
+        last_date = last_price_date()
+        if last_date and fecha_fin > last_date:
+            return response.Response(
+                {"detail": f"fecha_fin no puede ser mayor que {last_date.isoformat()}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        use_trades = request.query_params.get('use_trades', '1') in ('1', 'true', 'True')
+
         data = portfolio_time_series(
-            portfolio=p,
-            start=ser.validated_data['fecha_inicio'],
-            end=ser.validated_data['fecha_fin']
+            portfolio=p, start=fecha_inicio, end=fecha_fin, use_trades=use_trades
         )
         return response.Response({
             "dates": [d.isoformat() for d in data["dates"]],
             "Vt": data["Vt"],
-            "weights": data["weights"]
+            "weights": data["weights"],
+            "use_trades": use_trades,
         })
 
 class TradeApi(views.APIView):

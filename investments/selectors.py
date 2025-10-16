@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal, ROUND_HALF_UP
 from collections import defaultdict
 
-from django.db.models import Sum
+from django.db.models import Sum, Max
 
 from investments.models import Portfolio, Asset, Price, InitialWeight, HoldingAdjustment
 
@@ -181,3 +181,10 @@ def portfolio_time_series(*, portfolio: Portfolio, start, end, use_trades: bool 
         weights.append(wmap)
 
     return {"dates": dates, "Vt": vt, "weights": weights}
+
+
+def last_price_date():
+    """Devuelve la última fecha disponible en Price o None si no hay datos."""
+    from investments.models import Price  # import local para evitar ciclos
+    agg = Price.objects.aggregate(last=Max("date"))
+    return agg["last"]

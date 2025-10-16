@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from investments.models import Portfolio, Price
-from investments.selectors import portfolio_time_series
+from investments.selectors import portfolio_time_series, last_price_date
+from django.http import HttpResponseBadRequest
 from datetime import datetime, date
 
 def _parse_date(d):
@@ -20,6 +21,10 @@ def portfolio_charts(request, portfolio_id):
     ff_str = request.GET.get('fecha_fin', p.initial_date.isoformat())
     fi = _parse_date(fi_str)
     ff = _parse_date(ff_str)
+    
+    last_date = last_price_date()
+    if last_date and ff > last_date:
+        return HttpResponseBadRequest(f"fecha_fin no puede ser mayor que {last_date.isoformat()}")
 
     data = portfolio_time_series(portfolio=p, start=fi, end=ff, use_trades=True)
 
@@ -40,6 +45,10 @@ def portfolio_charts_no_trades(request, portfolio_id):
     fi = _parse_date(fi_str)
     ff = _parse_date(ff_str)
 
+    last_date = last_price_date()
+    if last_date and ff > last_date:
+        return HttpResponseBadRequest(f"fecha_fin no puede ser mayor que {last_date.isoformat()}")
+    
     data = portfolio_time_series(portfolio=p, start=fi, end=ff, use_trades=False)
 
     dates = [d.isoformat() for d in data["dates"]]
