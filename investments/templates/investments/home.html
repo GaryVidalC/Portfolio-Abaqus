@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <title>Portfolio – Selector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+        body{font-family:system-ui,Segoe UI,Arial,sans-serif; margin:24px;}
+        .card{max-width:900px; margin:auto; padding:20px; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.06)}
+        .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+        .row > *{flex:1}
+        label{display:block; font-weight:600; margin-bottom:6px}
+        input, select{width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px}
+        .radios{display:flex; gap:16px; align-items:center}
+        button{padding:10px 16px; border-radius:10px; border:0; background:#111827; color:#fff; cursor:pointer}
+        button.secondary{background:#6b7280}
+        iframe{width:100%; height:70vh; border:1px solid #e5e7eb; border-radius:12px; margin-top:18px}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Visualizador de Portafolios</h1>
+        <p>Elige portafolio, rango de fechas y si quieres considerar <b>trades</b>.</p>
+
+        <form id="formSelector" class="row" onsubmit="loadCharts(event)">
+        <div>
+            <label for="portfolio">Portafolio</label>
+            <select id="portfolio" name="portfolio">
+            {% for p in portfolios %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="fecha_inicio">Fecha inicio</label>
+            <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ start_default }}" required>
+        </div>
+
+        <div>
+            <label for="fecha_fin">Fecha fin</label>
+            <input type="date" id="fecha_fin" name="fecha_fin" value="{{ end_default }}" required>
+        </div>
+
+        <div style="flex:1 0 100%;">
+            <label>Trades (Bonus 2)</label>
+            <div class="radios">
+            <label><input type="radio" name="mode" value="with" checked> Con trades</label>
+            <label><input type="radio" name="mode" value="without"> Sin trades</label>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex:1 0 100%;">
+            {% comment %} <button type="submit">Ver gráficos</button> {% endcomment %}
+            <button class="secondary" type="button" onclick="openNewTab()">Abrir en pestaña nueva</button>
+        </div>
+        </form>
+
+        {% comment %} <iframe id="preview" title="Gráficos del portafolio"></iframe> {% endcomment %}
+    </div>
+
+<script>
+function buildChartsUrl({portfolio, start, end, mode}) {
+    const base = mode === 'without'
+        ? `/charts/portfolios/${portfolio}/no-trades/`
+        : `/charts/portfolios/${portfolio}/`;
+    const qs = `?fecha_inicio=${encodeURIComponent(start)}&fecha_fin=${encodeURIComponent(end)}`;
+    return base + qs;
+}
+
+function loadCharts(ev){
+    ev.preventDefault();
+    const portfolio = document.getElementById('portfolio').value;
+    const start = document.getElementById('fecha_inicio').value;
+    const end = document.getElementById('fecha_fin').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+
+    if(!portfolio || !start || !end){
+        alert("Completa portafolio y fechas.");
+        return;
+    }
+    const url = buildChartsUrl({portfolio, start, end, mode});
+    document.getElementById('preview').src = url;
+}
+
+function openNewTab(){
+    const portfolio = document.getElementById('portfolio').value;
+    const start = document.getElementById('fecha_inicio').value;
+    const end = document.getElementById('fecha_fin').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const url = buildChartsUrl({portfolio, start, end, mode});
+    window.open(url, '_blank');
+}
+
+// Carga inicial con defaults al entrar
+window.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('formSelector');
+    form.requestSubmit(); // dispara onsubmit y carga el iframe una vez
+});
+</script>
+</body>
+</html>

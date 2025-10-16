@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>{{ portfolio.name }} - Charts</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>canvas{max-width:1200px;}</style>
+</head>
+<body>
+    <h1>{{ portfolio.name }}</h1>
+    <h3>{{ dates.0 }} – {{ dates|last }}</h3>
+
+    <h2>V_t (línea)</h2>
+    <canvas id="vtChart"></canvas>
+
+    <h2>w_{i,t} (stacked area)</h2>
+    <canvas id="wChart"></canvas>
+
+<script>
+const dates = {{ dates|safe }};
+const vt = {{ vt|safe }};
+const assets = {{ assets|safe }};
+const series = {{ series|safe }};
+
+new Chart(document.getElementById('vtChart'), {
+    type: 'line',
+    data: { labels: dates, datasets: [{ label: 'V_t', data: vt, fill: false }] },
+});
+
+const datasets = assets.map((name) => ({ label: name, data: series[name], fill: true }));
+new Chart(document.getElementById('wChart'), {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: { plugins:{legend:{position:'bottom'}}, scales:{ y:{ stacked:true, min:0, max:1 } } }
+});
+</script>
+</body>
+</html>
