@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from investments.models import Portfolio, Price
 from investments.selectors import portfolio_time_series, last_price_date
+from investments.services import ensure_demo_trade_applied
 from django.http import HttpResponseBadRequest
 from datetime import datetime, date
 
@@ -17,6 +18,12 @@ def _parse_date(d):
 def portfolio_charts(request, portfolio_id):
     """Con trades (por defecto)."""
     p = get_object_or_404(Portfolio, pk=portfolio_id)
+    # Intentamos aplicar el trade demo automáticamente si procede (facilita el uso al clonar)
+    try:
+        ensure_demo_trade_applied(portfolio=p)
+    except Exception:
+        # No queremos romper la vista si algo falla aquí; en su lugar, continuamos sin abortar.
+        pass
     fi_str = request.GET.get('fecha_inicio', p.initial_date.isoformat())
     ff_str = request.GET.get('fecha_fin', p.initial_date.isoformat())
     fi = _parse_date(fi_str)

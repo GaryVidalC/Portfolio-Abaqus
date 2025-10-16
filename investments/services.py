@@ -6,6 +6,7 @@ from datetime import datetime, date
 from django.db import models, transaction
 
 from investments.models import Portfolio, Asset, Price, HoldingAdjustment
+import logging
 
 
 # ---------- helpers ----------
@@ -24,6 +25,16 @@ def _ensure_date(x) -> date:
 
 def _price(asset: Asset, d: date) -> Decimal:
     return Price.objects.get(asset=asset, date=d).price
+
+
+def _price_or_previous(asset: Asset, d: date) -> tuple[Decimal, date]:
+    """Return (price, price_date). If exact date not present, return the most recent price <= d.
+    Raises Price.DoesNotExist if no price is available for the asset at or before d.
+    """
+    p = Price.objects.filter(asset=asset, date__lte=d).order_by('-date').first()
+    if not p:
+        raise Price.DoesNotExist(f"No price for asset {asset} on or before {d}")
+    return p.price, p.date
 
 
 # ---------- core ----------
@@ -78,7 +89,7 @@ def portfolio_weights_on_date(*, portfolio: Portfolio, d) -> dict[str, Decimal]:
     return res
 
 @transaction.atomic
-def apply_trade(*, portfolio: Portfolio, d, asset_sell: Asset, value_sell, asset_buy: Asset, value_buy) -> None:
+def apply_trade(*, portfolio: Portfolio, d, asset_sell: Asset, value_sell, asset_buy: Asset, value_buy, fallback_to_previous_price: bool = True) -> None:
     """
     Aplica un trade en fecha d:
       - vende 'value_sell' USD de asset_sell  -> delta_units NEGATIVO
@@ -86,8 +97,27 @@ def apply_trade(*, portfolio: Portfolio, d, asset_sell: Asset, value_sell, asset
     Usa precios de ese día y cuantiza unidades a 8 decimales.
     """
     d = _ensure_date(d)
-    ps = _price(asset_sell, d)  # puede levantar DoesNotExist (correcto)
-    pb = _price(asset_buy,  d)
+    # Intentamos precio en la fecha; si no existe y fallback_to_previous_price=True,
+    # usamos el precio más reciente anterior (esto facilita clonar/usar DB con rangos de fechas distintos).
+    try:
+        ps = _price(asset_sell, d)
+        ps_date = d
+    except Price.DoesNotExist:
+        if fallback_to_previous_price:
+            ps, ps_date = _price_or_previous(asset_sell, d)
+            logging.getLogger(__name__).warning("Price for %s on %s not found, using price from %s", asset_sell, d, ps_date)
+        else:
+            raise
+
+    try:
+        pb = _price(asset_buy, d)
+        pb_date = d
+    except Price.DoesNotExist:
+        if fallback_to_previous_price:
+            pb, pb_date = _price_or_previous(asset_buy, d)
+            logging.getLogger(__name__).warning("Price for %s on %s not found, using price from %s", asset_buy, d, pb_date)
+        else:
+            raise
 
     units_sell = (_q(value_sell) / ps).quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
     units_buy = (_q(value_buy) / pb).quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
@@ -105,3 +135,36 @@ def apply_trade(*, portfolio: Portfolio, d, asset_sell: Asset, value_sell, asset
 
     # Retornamos las unidades calculadas por si el llamador quiere usarlas (útil para tests/manual checks)
     return {'units_sell': units_sell, 'units_buy': units_buy}
+
+
+def ensure_demo_trade_applied(*, portfolio: Portfolio) -> bool:
+    """
+    Apply a demo trade for the portfolio if no HoldingAdjustment exist yet.
+    Returns True if a trade was applied (or already present), False if nothing was done due to missing prices.
+
+    The demo trade is: on 15/05/2022 sell 200_000_000 of 'EEUU' and buy 200_000_000 of 'Europa'.
+    This helper is idempotent (apply_trade already avoids duplicates).
+    """
+    logger = logging.getLogger(__name__)
+    # If there are already adjustments for this portfolio, assume demo was applied or user data exists
+    if HoldingAdjustment.objects.filter(portfolio=portfolio).exists():
+        return True
+
+    try:
+        asset_sell = Asset.objects.get(name='EEUU')
+        asset_buy = Asset.objects.get(name='Europa')
+    except Asset.DoesNotExist:
+        logger.info("Demo assets not present in DB; skipping demo trade application.")
+        return False
+
+    trade_date = '15/05/2022'
+    try:
+        apply_trade(portfolio=portfolio, d=trade_date, asset_sell=asset_sell, value_sell=200_000_000, asset_buy=asset_buy, value_buy=200_000_000)
+        logger.info("Demo trade applied for portfolio %s on %s", portfolio, trade_date)
+        return True
+    except Price.DoesNotExist:
+        logger.info("Prices for demo trade date not available; skipping demo trade.")
+        return False
+    except Exception:
+        logger.exception("Unexpected error applying demo trade")
+        return False
