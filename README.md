@@ -1,9 +1,9 @@
 # Django Portfolio Engine
 
 Proyecto Django para modelar portafolios de inversión y responder:
-- $ C_{i,0} $ : cantidades iniciales por activo
-- $ V_t $ : valor del portafolio en el tiempo
-- $ w_{i,t} $ : weights por activo en el tiempo
+- $C_{i,0}$ : cantidades iniciales por activo
+- $V_t$ : valor del portafolio en el tiempo
+- $w_{i,t}$ : weights por activo en el tiempo
 
 Incluye:
 - ETL desde **datos.xlsx** (sheets `weights` y `Precios`)
